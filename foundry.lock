@@ -4,5 +4,11 @@
       "name": "v1.14.0",
       "rev": "1801b0541f4fda118a10798fd3486bb7051c5dd6"
     }
+  },
+  "lib/tempo-std": {
+    "branch": {
+      "name": "master",
+      "rev": "ca8e6ac215fb3c83ab627c4a16841cc5d4232ef8"
+    }
   }
 }
