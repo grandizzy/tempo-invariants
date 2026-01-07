@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {IStablecoinExchange} from "tempo-std/interfaces/IStablecoinExchange.sol";
 import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
 
@@ -10,7 +10,8 @@ contract StablecoinExchangeTest is Test {
     ITIP20 pathUsd = ITIP20(0x20C0000000000000000000000000000000000000);
     ITIP20 betaUsd = ITIP20(0x20C0000000000000000000000000000000000002);
 
-    address[] public actors;
+    address[] private actors;
+    mapping(address => uint128[]) private placedOrders;
     int16[10] private ticks = [int16(10), 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
     uint256 expectedPathUsdExchangeBalance = 0;
@@ -25,8 +26,8 @@ contract StablecoinExchangeTest is Test {
     function placeOrder(uint256 actorRnd, uint128 amount, uint256 tickRnd, bool isBid, bool cancel) external {
         int16 tick = ticks[tickRnd % ticks.length];
         address actor = actors[actorRnd % actors.length];
-        console.log(tick);
-        console.log(actor);
+        console2.log("tick", tick);
+        console2.log("actor", actor);
         amount = uint128(bound(amount, 100000000, 10000000000));
 
         vm.startPrank(actor);
@@ -44,8 +45,21 @@ contract StablecoinExchangeTest is Test {
             } else {
                 exchange.withdraw(address(betaUsd), amount);
             }
+        } else {
+            placedOrders[actor].push(orderId);
         }
         vm.stopPrank();
+    }
+
+    function afterInvariant() public {
+        for (uint256 i = 0; i < actors.length; i++) {
+            address actor = actors[i];
+            vm.startPrank(actor);
+            for (uint256 orderId = 0; orderId < placedOrders[actor].length; orderId++) {
+                exchange.cancel(placedOrders[actor][orderId]);
+            }
+            vm.stopPrank();
+        }
     }
 
     function invariant_stablecoin_exchange() public view {
