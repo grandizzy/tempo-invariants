@@ -13,6 +13,7 @@ contract StablecoinExchangeTest is Test {
     address[] private actors;
     mapping(address => uint128[]) private placedOrders;
     int16[10] private ticks = [int16(10), 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    uint128 private nextOrderId;
 
     uint256 expectedPathUsdExchangeBalance = 0;
 
@@ -21,6 +22,7 @@ contract StablecoinExchangeTest is Test {
 
         actors = _buildActors(10);
         expectedPathUsdExchangeBalance = pathUsd.balanceOf(address(exchange));
+        nextOrderId = exchange.nextOrderId();
     }
 
     function placeOrder(uint256 actorRnd, uint128 amount, uint256 tickRnd, bool isBid, bool cancel) external {
@@ -32,6 +34,9 @@ contract StablecoinExchangeTest is Test {
 
         vm.startPrank(actor);
         uint128 orderId = exchange.place(address(betaUsd), amount, isBid, tick);
+        // Next order id invariant
+        assertEq(orderId, nextOrderId, "next order id mismatch");
+        nextOrderId += 1;
 
         uint32 price = exchange.tickToPrice(tick);
         uint256 expectedEscrow = (uint256(amount) * uint256(price)) / uint256(exchange.PRICE_SCALE());
@@ -48,6 +53,21 @@ contract StablecoinExchangeTest is Test {
         } else {
             placedOrders[actor].push(orderId);
         }
+
+        vm.stopPrank();
+    }
+
+    function placeFlipOrder(uint256 actorRnd, uint128 amount, uint256 tickRnd) external {
+        int16 tick = ticks[tickRnd % ticks.length];
+        address actor = actors[actorRnd % actors.length];
+        amount = uint128(bound(amount, 100000000, 10000000000));
+
+        vm.startPrank(actor);
+        uint128 orderId = exchange.placeFlip(address(betaUsd), amount, true, tick, 200);
+        // Next order id invariant
+        assertEq(orderId, nextOrderId, "next order id mismatch");
+        nextOrderId += 1;
+
         vm.stopPrank();
     }
 
