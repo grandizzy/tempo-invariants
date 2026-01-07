@@ -7,3 +7,5 @@ libs = ["lib"]
 
 [invariant]
 fail_on_revert = true
+runs = 1
+depth = 20

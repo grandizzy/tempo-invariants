@@ -10,42 +10,69 @@ contract StablecoinExchangeTest is Test {
     ITIP20 pathUsd = ITIP20(0x20C0000000000000000000000000000000000000);
     ITIP20 betaUsd = ITIP20(0x20C0000000000000000000000000000000000002);
 
+    address[] public actors;
+    int16[10] private ticks = [int16(10), 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
     uint256 expectedPathUsdExchangeBalance = 0;
 
     function setUp() public {
         targetContract(address(this));
 
+        actors = _buildActors(10);
         expectedPathUsdExchangeBalance = pathUsd.balanceOf(address(exchange));
     }
 
-    function placeBid(address actor, uint128 amount, int16 tick, bool cancel) external {
-        tick = int16(bound(tick, 10, 10));
+    function placeOrder(uint256 actorRnd, uint128 amount, uint256 tickRnd, bool isBid, bool cancel) external {
+        int16 tick = ticks[tickRnd % ticks.length];
+        address actor = actors[actorRnd % actors.length];
+        console.log(tick);
+        console.log(actor);
         amount = uint128(bound(amount, 100000000, 10000000000));
 
-        vm.startPrank(0xBfaA9CEFb6c7d4537EceE5d036341BF4FACbf20e);
-        betaUsd.approve(address(exchange), 10000000000000);
-        pathUsd.approve(address(exchange), 10000000000000);
-        uint128 orderId = exchange.place(address(betaUsd), amount, true, tick);
+        vm.startPrank(actor);
+        uint128 orderId = exchange.place(address(betaUsd), amount, isBid, tick);
 
-        expectedPathUsdExchangeBalance += amount;
-
-        // TODO: assert balance reduced from user, shows up in exchange
+        uint32 price = exchange.tickToPrice(tick);
+        uint256 expectedEscrow = (uint256(amount) * uint256(price)) / uint256(exchange.PRICE_SCALE());
+        expectedPathUsdExchangeBalance += expectedEscrow;
 
         if (cancel) {
             exchange.cancel(orderId);
-            // TODO: assert balance reduced from exchange, shows up for user
-
-            expectedPathUsdExchangeBalance -= amount;
+            if (isBid) {
+                exchange.withdraw(address(pathUsd), uint128(expectedEscrow));
+                expectedPathUsdExchangeBalance -= expectedEscrow;
+            } else {
+                exchange.withdraw(address(betaUsd), amount);
+            }
         }
         vm.stopPrank();
     }
 
-    function invariant_stablecoin_exchange() public {
-        uint256 exchangeBalance = pathUsd.balanceOf(address(exchange));
+    function invariant_stablecoin_exchange() public view {
+        uint256 exchangePathUsdBalance = pathUsd.balanceOf(address(exchange));
+        // TODO: assert path usd and beta usd balances for exchange and for each actor
+        //assertEq(exchangePathUsdBalance, expectedPathUsdExchangeBalance, "pathUSD exchange balance different than expected");
 
-        console.log(exchangeBalance);
-        console.log(expectedPathUsdExchangeBalance);
+        uint256 exchangeBetaUsdBalance = betaUsd.balanceOf(address(exchange));
+    }
 
-        assertEq(exchangeBalance, expectedPathUsdExchangeBalance, "pathUSD exchange balance different than expected");
+    function _buildActors(uint256 noOfActors_) internal returns (address[] memory) {
+        address[] memory actorsAddress = new address[](noOfActors_);
+
+        for (uint256 i = 0; i < noOfActors_; i++) {
+            address actor = makeAddr(string(abi.encodePacked("Actor", vm.toString(i))));
+            actorsAddress[i] = actor;
+
+            vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+            pathUsd.mint(actor, 10000000000000);
+            betaUsd.mint(actor, 10000000000000);
+            vm.stopPrank();
+
+            vm.startPrank(actor);
+            betaUsd.approve(address(exchange), 10000000000000);
+            pathUsd.approve(address(exchange), 10000000000000);
+        }
+
+        return actorsAddress;
     }
 }

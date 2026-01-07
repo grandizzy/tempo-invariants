@@ -11,9 +11,15 @@ contract StablecoinExchangeReproTest is Test {
     ITIP20 betaUsd = ITIP20(0x20C0000000000000000000000000000000000002);
 
     uint256 expectedPathUsdExchangeBalance = 0;
-    
-    function testPlaceBidWithRounding() external {
-        vm.startPrank(0xBfaA9CEFb6c7d4537EceE5d036341BF4FACbf20e);
+
+    function testPlaceBidWithRounding(address actor) external {
+        vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        betaUsd.mint(actor, 10000000000000);
+        pathUsd.mint(actor, 10000000000000);
+        vm.stopPrank();
+
+        vm.startPrank(actor);
+        console2.log("currentBalance", pathUsd.balanceOf(address(exchange)));
         betaUsd.approve(address(exchange), 10000000000000);
         pathUsd.approve(address(exchange), 10000000000000);
 
@@ -26,7 +32,10 @@ contract StablecoinExchangeReproTest is Test {
         console2.log("expectedEscrow", expectedEscrow);
         console2.log("expectedBalance", initialExchangeBalance + expectedEscrow);
         console2.log("currentBalance", pathUsd.balanceOf(address(exchange)));
-        assertEq(initialExchangeBalance + expectedEscrow, pathUsd.balanceOf(address(exchange)), "pathUSD exchange balance different than expected");
+        assertEq(
+            initialExchangeBalance + expectedEscrow,
+            pathUsd.balanceOf(address(exchange)),
+            "pathUSD exchange balance different than expected"
+        );
     }
-
 }
