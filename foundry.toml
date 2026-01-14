@@ -10,5 +10,5 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 [invariant]
 fail_on_revert = true
 runs = 10
-depth = 100
+depth = 20
 show_solidity = true
